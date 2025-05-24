@@ -59,6 +59,7 @@ private:
 
     static std::string TextWithColor(const std::string& text, const std::string& color);
 public:
+
     static void SetReforgeData(Item* item, uint32 decrease, uint32 increase, uint32 value);
     static void ClearReforgeData(Item* item); 
     static void SaveToDB(Item* item, uint32 decrease, uint32 increase, uint32 value);

@@ -29,99 +29,70 @@ static std::unordered_map<uint64, std::tuple<uint32, uint32, uint32>> s_ReforgeC
 
 void ItemReforge::SetReforgeData(Item* item, uint32 decrease, uint32 increase, uint32 value)
 {
-    if (!item)
-        return;
-
-    uint64 guid = item->GetGUID().GetCounter();
-    s_ReforgeCache[guid] = std::make_tuple(decrease, increase, value);
-
-    SaveToDB(item, decrease, increase, value);
+    if (!item) return;
+    CharacterDatabase.Execute(
+        "UPDATE item_instance SET reforge_decrease = {}, reforge_increase = {}, reforge_value = {} WHERE guid = {}",
+        decrease, increase, value, item->GetGUID().GetCounter()
+    );
 }
 
 void ItemReforge::ClearReforgeData(Item* item)
 {
-    if (!item)
-        return;
-
-    uint64 guid = item->GetGUID().GetCounter();
-    s_ReforgeCache[guid] = std::make_tuple(0, 0, 0);
-
-    SaveToDB(item, 0, 0, 0);
+    if (!item) return;
+    CharacterDatabase.Execute(
+        "UPDATE item_instance SET reforge_decrease = 0, reforge_increase = 0, reforge_value = 0 WHERE guid = {}",
+        item->GetGUID().GetCounter()
+    );
 }
 
 bool ItemReforge::HasReforge(const Item* item)
 {
-    if (!item)
-        return false;
-
-    uint64 guid = item->GetGUID().GetCounter();
-    auto it = s_ReforgeCache.find(guid);
-    if (it != s_ReforgeCache.end())
-        return std::get<2>(it->second) != 0 && std::get<1>(it->second) != 0;
-
-    uint32 d = 0, i = 0, v = 0;
-    if (LoadFromDB(item, d, i, v))
-        return v != 0 && i != 0;
-
-    return false;
+    if (!item) return false;
+    QueryResult result = CharacterDatabase.Query(
+        "SELECT reforge_decrease, reforge_increase, reforge_value FROM item_instance WHERE guid = {}",
+        item->GetGUID().GetCounter()
+    );
+    if (!result) return false;
+    Field* fields = result->Fetch();
+    return fields[0].Get<uint32>() != 0 || fields[1].Get<uint32>() != 0 || fields[2].Get<uint32>() != 0;
 }
 
 uint32 ItemReforge::GetReforgeDecrease(const Item* item)
 {
-    if (!item)
-        return 0;
-
-    uint64 guid = item->GetGUID().GetCounter();
-    auto it = s_ReforgeCache.find(guid);
-    if (it != s_ReforgeCache.end())
-        return std::get<0>(it->second);
-
-    uint32 d = 0, i = 0, v = 0;
-    if (LoadFromDB(item, d, i, v))
-        return d;
-
-    return 0;
+    if (!item) return 0;
+    QueryResult result = CharacterDatabase.Query(
+        "SELECT reforge_decrease FROM item_instance WHERE guid = {}",
+        item->GetGUID().GetCounter()
+    );
+    if (!result) return 0;
+    return result->Fetch()[0].Get<uint32>();
 }
 
 uint32 ItemReforge::GetReforgeIncrease(const Item* item)
 {
-    if (!item)
-        return 0;
-
-    uint64 guid = item->GetGUID().GetCounter();
-    auto it = s_ReforgeCache.find(guid);
-    if (it != s_ReforgeCache.end())
-        return std::get<1>(it->second);
-
-    uint32 d = 0, i = 0, v = 0;
-    if (LoadFromDB(item, d, i, v))
-        return i;
-
-    return 0;
+    if (!item) return 0;
+    QueryResult result = CharacterDatabase.Query(
+        "SELECT reforge_increase FROM item_instance WHERE guid = {}",
+        item->GetGUID().GetCounter()
+    );
+    if (!result) return 0;
+    return result->Fetch()[0].Get<uint32>();
 }
 
 uint32 ItemReforge::GetReforgeValue(const Item* item)
 {
-    if (!item)
-        return 0;
-
-    uint64 guid = item->GetGUID().GetCounter();
-    auto it = s_ReforgeCache.find(guid);
-    if (it != s_ReforgeCache.end())
-        return std::get<2>(it->second);
-
-    uint32 d = 0, i = 0, v = 0;
-    if (LoadFromDB(item, d, i, v))
-        return v;
-
-    return 0;
+    if (!item) return 0;
+    QueryResult result = CharacterDatabase.Query(
+        "SELECT reforge_value FROM item_instance WHERE guid = {}",
+        item->GetGUID().GetCounter()
+    );
+    if (!result) return 0;
+    return result->Fetch()[0].Get<uint32>();
 }
 
 void ItemReforge::SaveToDB(Item* item, uint32 decrease, uint32 increase, uint32 value)
 {
-    if (!item)
-        return;
-
+    if (!item) return;
     CharacterDatabase.Execute(
         "UPDATE item_instance SET reforge_decrease = {}, reforge_increase = {}, reforge_value = {} WHERE guid = {}",
         decrease, increase, value, item->GetGUID().GetCounter()
@@ -130,9 +101,7 @@ void ItemReforge::SaveToDB(Item* item, uint32 decrease, uint32 increase, uint32 
 
 bool ItemReforge::LoadFromDB(const Item* item, uint32& decrease, uint32& increase, uint32& value)
 {
-    if (!item)
-        return false;
-
+    if (!item) return false;
     QueryResult result = CharacterDatabase.Query(
         "SELECT reforge_decrease, reforge_increase, reforge_value FROM item_instance WHERE guid = {}",
         item->GetGUID().GetCounter()
@@ -143,16 +112,12 @@ bool ItemReforge::LoadFromDB(const Item* item, uint32& decrease, uint32& increas
         decrease = fields[0].Get<uint32>();
         increase = fields[1].Get<uint32>();
         value = fields[2].Get<uint32>();
-
-        // 同步缓存
         s_ReforgeCache[item->GetGUID().GetCounter()] = std::make_tuple(decrease, increase, value);
         return true;
     }
-
     decrease = increase = value = 0;
     return false;
 }
-
 
 ItemReforge::ItemReforge()
 {
