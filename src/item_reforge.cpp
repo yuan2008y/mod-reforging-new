@@ -11,6 +11,148 @@
 #include "SpellMgr.h"
 #include "WorldSessionMgr.h"
 #include "item_reforge.h"
+#include "Item.h"
+#include <unordered_map>
+#include <tuple>
+
+ /*
+  * ItemReforge 实现：基于 item_instance 表的 reforge 字段实现装备实例级重铸
+  * 需在数据库 item_instance 表增加字段：
+  *   reforge_decrease INT DEFAULT 0,
+  *   reforge_increase INT DEFAULT 0,
+  *   reforge_value   INT DEFAULT 0
+  */
+
+  // 内存缓存每个 item 的重铸数据（可选加速）
+static std::unordered_map<uint64, std::tuple<uint32, uint32, uint32>> s_ReforgeCache;
+
+
+void ItemReforge::SetReforgeData(Item* item, uint32 decrease, uint32 increase, uint32 value)
+{
+    if (!item)
+        return;
+
+    uint64 guid = item->GetGUID().GetCounter();
+    s_ReforgeCache[guid] = std::make_tuple(decrease, increase, value);
+
+    SaveToDB(item, decrease, increase, value);
+}
+
+void ItemReforge::ClearReforgeData(Item* item)
+{
+    if (!item)
+        return;
+
+    uint64 guid = item->GetGUID().GetCounter();
+    s_ReforgeCache[guid] = std::make_tuple(0, 0, 0);
+
+    SaveToDB(item, 0, 0, 0);
+}
+
+bool ItemReforge::HasReforge(const Item* item)
+{
+    if (!item)
+        return false;
+
+    uint64 guid = item->GetGUID().GetCounter();
+    auto it = s_ReforgeCache.find(guid);
+    if (it != s_ReforgeCache.end())
+        return std::get<2>(it->second) != 0 && std::get<1>(it->second) != 0;
+
+    uint32 d = 0, i = 0, v = 0;
+    if (LoadFromDB(item, d, i, v))
+        return v != 0 && i != 0;
+
+    return false;
+}
+
+uint32 ItemReforge::GetReforgeDecrease(const Item* item)
+{
+    if (!item)
+        return 0;
+
+    uint64 guid = item->GetGUID().GetCounter();
+    auto it = s_ReforgeCache.find(guid);
+    if (it != s_ReforgeCache.end())
+        return std::get<0>(it->second);
+
+    uint32 d = 0, i = 0, v = 0;
+    if (LoadFromDB(item, d, i, v))
+        return d;
+
+    return 0;
+}
+
+uint32 ItemReforge::GetReforgeIncrease(const Item* item)
+{
+    if (!item)
+        return 0;
+
+    uint64 guid = item->GetGUID().GetCounter();
+    auto it = s_ReforgeCache.find(guid);
+    if (it != s_ReforgeCache.end())
+        return std::get<1>(it->second);
+
+    uint32 d = 0, i = 0, v = 0;
+    if (LoadFromDB(item, d, i, v))
+        return i;
+
+    return 0;
+}
+
+uint32 ItemReforge::GetReforgeValue(const Item* item)
+{
+    if (!item)
+        return 0;
+
+    uint64 guid = item->GetGUID().GetCounter();
+    auto it = s_ReforgeCache.find(guid);
+    if (it != s_ReforgeCache.end())
+        return std::get<2>(it->second);
+
+    uint32 d = 0, i = 0, v = 0;
+    if (LoadFromDB(item, d, i, v))
+        return v;
+
+    return 0;
+}
+
+void ItemReforge::SaveToDB(Item* item, uint32 decrease, uint32 increase, uint32 value)
+{
+    if (!item)
+        return;
+
+    CharacterDatabase.Execute(
+        "UPDATE item_instance SET reforge_decrease = {}, reforge_increase = {}, reforge_value = {} WHERE guid = {}",
+        decrease, increase, value, item->GetGUID().GetCounter()
+    );
+}
+
+bool ItemReforge::LoadFromDB(const Item* item, uint32& decrease, uint32& increase, uint32& value)
+{
+    if (!item)
+        return false;
+
+    QueryResult result = CharacterDatabase.Query(
+        "SELECT reforge_decrease, reforge_increase, reforge_value FROM item_instance WHERE guid = {}",
+        item->GetGUID().GetCounter()
+    );
+    if (result)
+    {
+        Field* fields = result->Fetch();
+        decrease = fields[0].Get<uint32>();
+        increase = fields[1].Get<uint32>();
+        value = fields[2].Get<uint32>();
+
+        // 同步缓存
+        s_ReforgeCache[item->GetGUID().GetCounter()] = std::make_tuple(decrease, increase, value);
+        return true;
+    }
+
+    decrease = increase = value = 0;
+    return false;
+}
+
 
 ItemReforge::ItemReforge()
 {

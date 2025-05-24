@@ -7,6 +7,13 @@ void AddSC_npc_reforger();
 void AddSC_mod_reforging_playerscript();
 void AddSC_mod_reforging_itemscript();
 
+void Addmod_reforging_itemscript();
+
+extern "C" void AddSC_mod_reforging_new()
+{
+    Addmod_reforging_itemscript();
+}
+
 void Addmod_reforgingScripts()
 {
     AddSC_mod_reforging_worldscript();

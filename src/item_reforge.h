@@ -6,6 +6,24 @@
 #define _ITEM_REFORGE_H_
 
 #include "Define.h"
+#pragma once
+#include "Player.h"
+#include "Item.h"
+
+ /*class ItemReforge
+{
+public:
+    static void SetReforgeData(Item* item, uint32 decrease, uint32 increase, uint32 value);
+    static void ClearReforgeData(Item* item);
+
+    static bool HasReforge(const Item* item);
+    static uint32 GetReforgeDecrease(const Item* item);
+    static uint32 GetReforgeIncrease(const Item* item);
+    static uint32 GetReforgeValue(const Item* item);
+
+    static void SaveToDB(Item* item);
+    static void LoadFromDB(Item* item);
+};*/
 
 class ItemReforge
 {
@@ -41,10 +59,23 @@ private:
 
     static std::string TextWithColor(const std::string& text, const std::string& color);
 public:
+    static void SetReforgeData(Item* item, uint32 decrease, uint32 increase, uint32 value);
+    static void ClearReforgeData(Item* item); 
+    static void SaveToDB(Item* item, uint32 decrease, uint32 increase, uint32 value);
     static constexpr const char* DefaultReforgeableStats = "6,12,13,14,15,31,32,35,36,37,43,44";
     static constexpr float PERCENTAGE_DEFAULT = 40.0f;
     static constexpr int VISUAL_FEEDBACK_SPELL_ID = 46331;
     static constexpr uint32 NEEDMONEY_DEFAULT = 80000;
+
+
+    static bool HasReforge(const Item* item);
+    static uint32 GetReforgeDecrease(const Item* item);
+    static uint32 GetReforgeIncrease(const Item* item);
+    static uint32 GetReforgeValue(const Item* item);
+
+    static void SaveToDB(Item* item);
+    static void LoadFromDB(Item* item);
+    static bool LoadFromDB(const Item* item, uint32& decrease, uint32& increase, uint32& value);
 
 	static ItemReforge* instance();
 
